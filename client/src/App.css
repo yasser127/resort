@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+:root {
+  --sidebar-width: 0px; 
+}
+
+
+.main-with-sidebar {
+  margin-left: var(--sidebar-width);
+  transition: margin-left 180ms ease;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
