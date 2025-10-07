@@ -1,3 +1,4 @@
+// src/components/slogan1.tsx
 import React, { useEffect, useRef, useState } from "react";
 import luxuryDecorTop from "../../assets/luxury-decor-top.webp";
 
@@ -12,12 +13,15 @@ type Props = {
 };
 
 const DEFAULT_SLOGANS = [
-  "Experience the absolute highest standards of hospitality, provided with utmost effort",
-  "highest standards of hospitality, provided with utmost effort",
+  "Luxury resorts, private tours and VIP transfers, carefully hand-picked based on your tastes and build",
+  "A refined stay combining modern amenities with timeless design",
+  "Experience bespoke service and unrivaled comfort",
 ];
 
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3000";
+
 const SloganTyper2: React.FC<Props> = ({
-  slogans = DEFAULT_SLOGANS,
+  slogans: propsSlogans,
   typingSpeed = 50,
   deletingSpeed = 30,
   pauseAfterFull = 1400,
@@ -28,7 +32,54 @@ const SloganTyper2: React.FC<Props> = ({
   const [index, setIndex] = useState(0);
   const [charCount, setCharCount] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [slogans, setSlogans] = useState<string[]>(propsSlogans ?? DEFAULT_SLOGANS);
   const mountedRef = useRef(true);
+
+  // Load slogans from backend on mount (unless props provided)
+  useEffect(() => {
+    if (propsSlogans && propsSlogans.length > 0) {
+      // props provided — do not fetch
+      setSlogans(propsSlogans);
+      return;
+    }
+
+    const controller = new AbortController();
+    const signal = controller.signal;
+
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/general`, { signal });
+        if (!res.ok) throw new Error("Failed to fetch generals");
+        const data = await res.json();
+
+        const collected: string[] = [];
+
+        const readKey = (k: unknown) => {
+          if (k === undefined || k === null) return [];
+          if (Array.isArray(k)) return k.map(String).filter(Boolean);
+          if (typeof k === "string") return k.trim() ? [k] : [];
+          return [String(k)];
+        };
+
+       
+        collected.push(...readKey(data?.slogan2));
+        
+
+        if (collected.length > 0) {
+          setSlogans(collected);
+        } else {
+          setSlogans(DEFAULT_SLOGANS);
+        }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } catch (err: any) {
+        if (err.name === "AbortError") return;
+        console.warn("Could not load slogans:", err);
+        setSlogans(DEFAULT_SLOGANS);
+      }
+    })();
+
+    return () => controller.abort();
+  }, [propsSlogans]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -39,6 +90,7 @@ const SloganTyper2: React.FC<Props> = ({
 
   useEffect(() => {
     if (!mountedRef.current) return;
+    if (!slogans || slogans.length === 0) return;
 
     const current = slogans[index % slogans.length];
 
@@ -88,16 +140,12 @@ const SloganTyper2: React.FC<Props> = ({
     loop,
   ]);
 
-  const currentText = slogans[index % slogans.length].slice(0, charCount);
+  const currentText = slogans.length ? slogans[index % slogans.length].slice(0, charCount) : "";
 
   return (
     <>
       <div className="flex justify-center items-center w-full h-full bg-gray-200 pt-20">
-        <img
-          src={luxuryDecorTop}
-          alt="Luxury Decor"
-          className="w-100 h-25 object-cover"
-        />
+        <img src={luxuryDecorTop} alt="Luxury Decor" className="w-100 h-25 object-cover" />
       </div>
 
       <div
@@ -105,9 +153,7 @@ const SloganTyper2: React.FC<Props> = ({
         className={`w-full h-[30vh] flex justify-center items-start px-6 py-8 bg-gray-200 ${className}`}
       >
         <div className="max-w-4xl text-center">
-          <div className="text-[9px] uppercase tracking-wider text-gray-700 mb-4">
-            What we offer
-          </div>
+          <div className="text-[9px] uppercase tracking-wider text-gray-700 mb-4">What we offer</div>
 
           <h2
             className="font-serif text-gray-900 leading-tight
@@ -123,9 +169,7 @@ const SloganTyper2: React.FC<Props> = ({
             />
           </h2>
 
-          <div className="mt-4 text-sm text-gray-700">
-            Peter Bowman — Creative Director
-          </div>
+          <div className="mt-4 text-sm text-gray-700">Peter Bowman — Creative Director</div>
         </div>
       </div>
     </>

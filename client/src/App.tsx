@@ -14,6 +14,8 @@ import ServicesAdmin from "./Pages/Admin/ServiceManeger/Service";
 import RoomsManeger from "./Pages/Admin/RoomManeger/RoomManeger";
 import AdminPanel from "./common/Admin/AdminPanel";
 import ReviewsManeger from "./Pages/Admin/ReviewsManeger/ReviewsManeger";
+import About from "./Pages/About/About";
+import Generals from "./Pages/Admin/Generals/Generals";
 
 type DashboardLayoutProps = { isLoggedIn: boolean };
 
@@ -44,7 +46,9 @@ export default function App() {
         <Route path="/admin_gate" element={<LoginCard />} />
         <Route element={<DashboardLayout isLoggedIn={isLoggedIn} />}>
           <Route index element={<Home />} />
+          <Route path="about" element={<About />} />
           {isLoggedIn && <Route path="service" element={<ServicesAdmin />} />}
+          {isLoggedIn && <Route path="generals" element={<Generals />} />}
           {isLoggedIn && <Route path="room" element={<RoomsManeger />} />}
           {isLoggedIn && <Route path="reviews" element={<ReviewsManeger />} />}
         </Route>

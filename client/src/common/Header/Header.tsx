@@ -37,7 +37,7 @@ const Header: React.FC = () => {
           <a href="#home" className="text-white/90 hover:text-white transition">
             Home
           </a>
-          <a href="#about" className="text-white/70 hover:text-white transition">
+          <a href="about" className="text-white/70 hover:text-white transition">
             About
           </a>
           <a href="#services" className="text-white/70 hover:text-white transition">

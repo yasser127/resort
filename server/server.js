@@ -7,6 +7,8 @@ import servicesRoute from "./routes/serviceRoute.js";
 import roomsRoute from "./routes/roomsRoute.js";
 import path from "path";
 import reviewsRoute from "./routes/reviewRoutes.js";
+import generalRoute from "./routes/generalRoute.js";
+
 
 dotenv.config();
 
@@ -32,6 +34,8 @@ app.use("/auth", authRoutes);
 app.use("/services", servicesRoute);
 app.use("/rooms", roomsRoute);
 app.use("/reviews", reviewsRoute)
+app.use("/api/general", generalRoute);
+
 
 
 app.get("/", (req, res) => res.json({ ok: true }));

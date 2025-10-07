@@ -126,9 +126,6 @@ export default function ReviewsList() {
         </div>
       </div>
 
-      {/* small left/right hint for mobile */}
-      <div className="mt-6 text-center text-xs text-gray-400">Use arrows or swipe to navigate</div>
-
       <style jsx>{`
         /* optional: make container focus outline nicer */
         div[tabindex="0"]:focus {

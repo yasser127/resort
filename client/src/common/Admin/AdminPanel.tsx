@@ -12,8 +12,8 @@ import {
   HandPlatter,
   Bed,
   CookingPot,
-  WavesLadder,
-  Dumbbell,
+ // WavesLadder,
+ // Dumbbell,
   Star,
 } from "lucide-react";
 
@@ -25,8 +25,8 @@ const LINKS: LinkDef[] = [
   { to: "/service", label: "Service", icon: HandPlatter },
   { to: "/room", label: "Rooms", icon: Bed },
   { to: "/items", label: "Items", icon: CookingPot },
-  { to: "/pool", label: "Pool", icon: WavesLadder },
-  { to: "/gym", label: "Gym", icon: Dumbbell },
+ // { to: "/pool", label: "Pool", icon: WavesLadder },
+ // { to: "/gym", label: "Gym", icon: Dumbbell },
   { to: "/reviews", label: "Reviews", icon: Star },
 ];
 
