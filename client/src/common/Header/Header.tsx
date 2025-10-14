@@ -22,7 +22,6 @@ const Header: React.FC = () => {
       }`}
     >
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-       
         <a href="/" className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-white/10 border border-white/20 flex items-center justify-center">
             <span className="font-serif text-white text-lg">LR</span>
@@ -32,7 +31,6 @@ const Header: React.FC = () => {
           </span>
         </a>
 
-       
         <nav className="hidden md:flex items-center gap-8 text-sm">
           <a href="#home" className="text-white/90 hover:text-white transition">
             Home
@@ -40,20 +38,23 @@ const Header: React.FC = () => {
           <a href="about" className="text-white/70 hover:text-white transition">
             About
           </a>
-          <a href="#services" className="text-white/70 hover:text-white transition">
+          <a
+            href="#services"
+            className="text-white/70 hover:text-white transition"
+          >
             Services
           </a>
-          <a href="#services" className="text-white/70 hover:text-white transition">
-            Resturant
+          <a
+            href="#items"
+            className="text-white/70 hover:text-white transition"
+          >
+            Restaurant
           </a>
-          <a href="#services" className="text-white/70 hover:text-white transition">
+          <a href="#gym" className="text-white/70 hover:text-white transition">
             Pool
           </a>
-          <a href="#services" className="text-white/70 hover:text-white transition">
+          <a href="#gym" className="text-white/70 hover:text-white transition">
             Gym
-          </a>
-          <a href="#contact" className="text-white/70 hover:text-white transition">
-            Contact
           </a>
         </nav>
 
@@ -62,7 +63,12 @@ const Header: React.FC = () => {
           {/* Removed the login button as requested */}
 
           <a
-            href="#book"
+            href={`https://wa.me/96181635574?text=${encodeURIComponent(
+              "Hello 👋, I want to book a room — please help me with availability and prices."
+            )}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Chat on WhatsApp"
             className="hidden md:inline-flex items-center px-4 py-2 rounded-lg bg-white text-black font-medium shadow-sm hover:scale-[1.01] transition-transform"
           >
             Book Now

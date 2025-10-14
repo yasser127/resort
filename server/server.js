@@ -8,6 +8,8 @@ import roomsRoute from "./routes/roomsRoute.js";
 import path from "path";
 import reviewsRoute from "./routes/reviewRoutes.js";
 import generalRoute from "./routes/generalRoute.js";
+import itemsRoute from "./routes/itemsRoutes.js";
+import categories from "./routes/categoriesRoute.js"
 
 
 dotenv.config();
@@ -35,7 +37,8 @@ app.use("/services", servicesRoute);
 app.use("/rooms", roomsRoute);
 app.use("/reviews", reviewsRoute)
 app.use("/api/general", generalRoute);
-
+app.use("/items", itemsRoute);
+app.use("/categories", categories);
 
 
 app.get("/", (req, res) => res.json({ ok: true }));

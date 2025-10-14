@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Facebook, Twitter, Instagram, Dribbble } from "lucide-react";
+import { Facebook, Instagram } from "lucide-react";
 import restoVideo from "../../assets/Luxury-Resort.mp4";
 
 const headingContainer = {
@@ -18,9 +18,29 @@ const headingItem = {
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3000";
 
+type MediaItem = {
+  id?: number;
+  social_media_name?: string;
+  social_media_link?: string;
+  name?: string;
+  link?: string;
+};
+
+const TikTokIcon: React.FC<{ size?: number }> = ({ size = 20 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    aria-hidden
+  >
+    <path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z" fill="currentColor" />
+  </svg>
+);
+
 const Home: React.FC = () => {
   const [title, setTitle] = useState<string>(
-    // default multiline title (keeps same split lines as before)
     `Stay at one of the\nmost luxurious hotels\nworldwide!`
   );
   const [description, setDescription] = useState<string>(
@@ -31,6 +51,9 @@ const Home: React.FC = () => {
   const [phone, setPhone] = useState<string>("81-xxx-xxx");
   const [loading, setLoading] = useState<boolean>(true);
 
+  // social links
+  const [mediaRows, setMediaRows] = useState<MediaItem[]>([]);
+  const [mediaError, setMediaError] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -43,7 +66,6 @@ const Home: React.FC = () => {
         if (!res.ok) throw new Error("Failed to fetch generals");
         const data = await res.json();
 
-        // data may have parsed types (strings or arrays). We expect strings for these keys.
         const remoteTitle = data?.["home.title"];
         const remoteDesc = data?.["home.description"];
         const remoteCountry = data?.["home.country"];
@@ -56,29 +78,141 @@ const Home: React.FC = () => {
         if (typeof remoteDesc === "string" && remoteDesc.trim().length > 0) {
           setDescription(remoteDesc);
         }
-        if (typeof remoteCountry === "string" && remoteCountry.trim().length > 0) {
+        if (
+          typeof remoteCountry === "string" &&
+          remoteCountry.trim().length > 0
+        ) {
           setCountry(remoteCountry);
         }
-        if (typeof remoteAddress === "string" && remoteAddress.trim().length > 0) {
+        if (
+          typeof remoteAddress === "string" &&
+          remoteAddress.trim().length > 0
+        ) {
           setAddress(remoteAddress);
         }
         if (typeof remotePhone === "string" && remotePhone.trim().length > 0) {
           setPhone(remotePhone);
         }
       } catch (err: any) {
-        if (err.name === "AbortError") return; // ignore abort
-        // otherwise keep defaults and optionally log
+        if (err.name === "AbortError") return;
         console.warn("Could not load generals:", err);
       } finally {
         setLoading(false);
       }
     })();
 
+    (async () => {
+      try {
+        setMediaError(null);
+        const r = await fetch(`${API_BASE}/api/general/media`, { signal });
+        if (!r.ok) {
+          setMediaError(`GET /api/general/media returned ${r.status}`);
+          setMediaRows([]);
+          console.warn("GET /api/general/media returned", r.status);
+          return;
+        }
+        const rows = await r.json();
+        console.debug("raw media rows from API:", rows);
+
+        let normalizedRows: any[] = [];
+        if (Array.isArray(rows)) {
+          normalizedRows = rows;
+        } else if (rows && typeof rows === "object") {
+          if (Array.isArray((rows as any).rows))
+            normalizedRows = (rows as any).rows;
+          else if (Array.isArray((rows as any).data))
+            normalizedRows = (rows as any).data;
+          else {
+            normalizedRows = [rows];
+          }
+        } else {
+          normalizedRows = [];
+        }
+
+        const mapped = normalizedRows.map((r: any) => ({
+          id: r.id,
+          social_media_name: r.social_media_name || r.name || "",
+          social_media_link: r.social_media_link || r.link || "",
+        }));
+        console.debug("normalized media rows:", mapped);
+        setMediaRows(mapped);
+        if (!mapped.length)
+          setMediaError("No media rows returned (empty array)");
+      } catch (e: any) {
+        if (e.name === "AbortError") return;
+        console.warn("Could not load media rows:", e);
+        setMediaError(String(e?.message || e));
+        setMediaRows([]);
+      }
+    })();
+
     return () => controller.abort();
   }, []);
 
-  // split title by newline so each line becomes an <h1> (preserves your original multi-h1 design)
   const titleParts = title.split("\n").filter(Boolean);
+
+  // Helpers
+  function normalizeName(n?: string) {
+    return (n || "").toLowerCase().trim();
+  }
+  function normalizeLink(l?: string) {
+    return (l || "").trim();
+  }
+  function ensureHref(raw?: string) {
+    if (!raw) return null;
+    const s = raw.trim();
+    if (s.startsWith("http://") || s.startsWith("https://")) return s;
+    if (s.startsWith("//")) return "https:" + s;
+    return "https://" + s;
+  }
+
+  function getFirstLinkFromRow(r: MediaItem) {
+    return r.social_media_link || r.link || "";
+  }
+
+  // find link by name or by URL pattern
+  function findLinkFor(
+    platform: "facebook" | "instagram" | "tiktok"
+  ): string | null {
+    // by name
+    const byName = mediaRows.find((m) => {
+      const n = normalizeName(m.social_media_name || m.name);
+      if (!n) return false;
+      return n.includes(platform);
+    });
+    if (byName) {
+      const raw = getFirstLinkFromRow(byName);
+      if (raw && normalizeLink(raw)) return ensureHref(raw);
+    }
+
+    // by URL - extended checks for tiktok
+    const byUrl = mediaRows.find((m) => {
+      const l = normalizeLink(getFirstLinkFromRow(m));
+      if (!l) return false;
+      if (platform === "facebook")
+        return l.includes("facebook.com") || l.includes("fb.me");
+      if (platform === "instagram")
+        return l.includes("instagram.com") || l.includes("instagr.am");
+      if (platform === "tiktok")
+        return (
+          l.includes("tiktok.com") ||
+          l.includes("vm.tiktok.com") ||
+          l.includes("t.tiktok.com") ||
+          l.includes("m.tiktok.com")
+        );
+      return false;
+    });
+    if (byUrl) {
+      const raw = getFirstLinkFromRow(byUrl);
+      if (raw && normalizeLink(raw)) return ensureHref(raw);
+    }
+
+    return null;
+  }
+
+  const facebookLink = findLinkFor("facebook");
+  const instagramLink = findLinkFor("instagram");
+  const tiktokLink = findLinkFor("tiktok");
 
   return (
     <section id="home" className="relative min-h-screen overflow-hidden">
@@ -113,7 +247,6 @@ const Home: React.FC = () => {
             animate="show"
             className="overflow-hidden"
           >
-            {/* Render each title line as its own animated heading */}
             {titleParts.map((line, idx) => (
               <motion.h1
                 key={idx}
@@ -131,7 +264,6 @@ const Home: React.FC = () => {
             transition={{ delay: 0.9, duration: 0.5 }}
             className="mt-6 text-sm text-white/80 max-w-xl"
           >
-            {/* show loading text while fetching optional */}
             {loading ? "Loading description…" : description}
           </motion.p>
 
@@ -142,7 +274,11 @@ const Home: React.FC = () => {
             className="mt-8 flex items-center gap-4"
           >
             <a
-              href="#book"
+              href={`https://wa.me/96181635574?text=${encodeURIComponent(
+                "Hello 👋, I want to book a room — please help me with availability and prices."
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
               className="inline-flex items-center px-5 py-3 rounded-lg border border-white/25 text-white/90"
             >
               Book a Room
@@ -155,22 +291,71 @@ const Home: React.FC = () => {
         <div className="uppercase font-medium tracking-wider text-[11px]">
           {country}
         </div>
-        <div className="mt-1">{address} {phone}</div>
+        <div className="mt-1">
+          {address} {phone}
+        </div>
       </div>
 
-      <div className="absolute right-6 bottom-1/3 z-20 hidden sm:flex flex-col items-center gap-4">
-        <a href="#" className="text-white/80 hover:text-white transition">
-          <Facebook size={16} />
-        </a>
-        <a href="#" className="text-white/80 hover:text-white transition">
-          <Twitter size={16} />
-        </a>
-        <a href="#" className="text-white/80 hover:text-white transition">
-          <Dribbble size={16} />
-        </a>
-        <a href="#" className="text-white/80 hover:text-white transition">
-          <Instagram size={16} />
-        </a>
+      <div className="absolute right-6 bottom-1/3 z-20 flex flex-col items-center gap-4">
+        {facebookLink ? (
+          <a
+            href={facebookLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-white/90 hover:text-white transition"
+            aria-label="Facebook"
+            title="Facebook"
+          >
+            <Facebook size={20} />
+          </a>
+        ) : (
+          <div
+            className="text-white/40 opacity-40 cursor-not-allowed"
+            title="Facebook — Not configured"
+          >
+            <Facebook size={20} />
+          </div>
+        )}
+
+        {instagramLink ? (
+          <a
+            href={instagramLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-white/90 hover:text-white transition"
+            aria-label="Instagram"
+            title="Instagram"
+          >
+            <Instagram size={20} />
+          </a>
+        ) : (
+          <div
+            className="text-white/40 opacity-40 cursor-not-allowed"
+            title="Instagram — Not configured"
+          >
+            <Instagram size={20} />
+          </div>
+        )}
+
+        {tiktokLink ? (
+          <a
+            href={tiktokLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-white/90 hover:text-white transition"
+            aria-label="TikTok"
+            title="TikTok"
+          >
+            <TikTokIcon size={20} />
+          </a>
+        ) : (
+          <div
+            className="text-white/40 opacity-40 cursor-not-allowed"
+            title="TikTok — Not configured"
+          >
+            <TikTokIcon size={20} />
+          </div>
+        )}
       </div>
     </section>
   );

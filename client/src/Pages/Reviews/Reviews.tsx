@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useRef, KeyboardEvent } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
+import type { KeyboardEvent } from "react";
 import api from "../../lib/api";
 
 type Review = {
@@ -13,6 +14,8 @@ export default function ReviewsList() {
   const [index, setIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const touchStartX = useRef<number | null>(null);
+  const touchDeltaX = useRef(0);
 
   useEffect(() => {
     let mounted = true;
@@ -32,12 +35,14 @@ export default function ReviewsList() {
     };
   }, []);
 
-  const prev = () => {
-    setIndex((i) => (reviews.length ? (i - 1 + reviews.length) % reviews.length : 0));
-  };
-  const next = () => {
+  const prev = useCallback(() => {
+    setIndex((i) =>
+      reviews.length ? (i - 1 + reviews.length) % reviews.length : 0
+    );
+  }, [reviews.length]);
+  const next = useCallback(() => {
     setIndex((i) => (reviews.length ? (i + 1) % reviews.length : 0));
-  };
+  }, [reviews.length]);
   const goTo = (i: number) => setIndex(i);
 
   // keyboard navigation when focused
@@ -46,10 +51,29 @@ export default function ReviewsList() {
     if (e.key === "ArrowRight") next();
   };
 
-  if (loading) return <div className="py-12 text-center">Loading reviews…</div>;
-  if (!reviews.length) return <div className="py-12 text-center">No reviews yet.</div>;
+  // touch (swipe) handlers
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches?.[0]?.clientX ?? null;
+    touchDeltaX.current = 0;
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (touchStartX.current == null) return;
+    const x = e.touches?.[0]?.clientX ?? 0;
+    touchDeltaX.current = x - touchStartX.current;
+  };
+  const onTouchEnd = () => {
+    const dx = touchDeltaX.current;
+    const threshold = 50; // px to trigger swipe
+    if (dx > threshold) prev();
+    else if (dx < -threshold) next();
+    touchStartX.current = null;
+    touchDeltaX.current = 0;
+  };
 
-  const current = reviews[index];
+  if (loading) return <div className="py-12 text-center">Loading reviews…</div>;
+  if (!reviews.length)
+    return <div className="py-12 text-center">No reviews yet.</div>;
+
   const base = api.defaults.baseURL || "";
 
   return (
@@ -57,48 +81,84 @@ export default function ReviewsList() {
       ref={containerRef}
       tabIndex={0}
       onKeyDown={onKeyDown}
-      className="relative select-none bg-[color:var(--cream,#fbf7f2)] py-16 px-6 md:px-12"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      className="relative select-none bg-[color:var(--cream,#fbf7f2)] py-16 px-4 md:px-8"
       aria-roledescription="carousel"
       aria-label="Customer reviews"
-      style={{ backgroundImage: "url('/')" }} // optional background image; replace if you want
     >
-      {/* Left arrow */}
-      <button
-        onClick={prev}
-        aria-label="Previous review"
-        className="absolute left-6 top-1/2 -translate-y-1/2 z-20 w-10 h-10 flex items-center justify-center rounded-full bg-white/80 shadow hover:bg-white focus:outline-none"
-      >
-        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M15 18l-6-6 6-6" />
-        </svg>
-      </button>
+      <div className="max-w-4xl mx-auto text-center relative ">
+        {/* Arrows placed inside the centered container so they're closer to the review text */}
+        <button
+          onClick={prev}
+          aria-label="Previous review"
+          className="absolute  left-2 top-1/2 -translate-y-1/2 z-20 w-10 h-10 flex items-center justify-center rounded-full bg-neutral-400 shadow hover:bg-neutral-500 transition-colors duration-300 ease-in-out focus:outline-none"
+          title="Previous"
+        >
+          <svg
+            className="w-5 h-5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+          >
+            <path
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M15 18l-6-6 6-6"
+            />
+          </svg>
+        </button>
 
-      {/* Right arrow */}
-      <button
-        onClick={next}
-        aria-label="Next review"
-        className="absolute right-6 top-1/2 -translate-y-1/2 z-20 w-10 h-10 flex items-center justify-center rounded-full bg-white/80 shadow hover:bg-white focus:outline-none"
-      >
-        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M9 6l6 6-6 6" />
-        </svg>
-      </button>
+        <button
+          onClick={next}
+          aria-label="Next review"
+          className="absolute right-2  top-1/2 -translate-y-1/2 z-20 w-10 h-10 flex items-center justify-center rounded-full bg-neutral-400 shadow hover:bg-neutral-500 transition-colors duration-300 ease-in-out   focus:outline-none"
+          title="Next"
+        >
+          <svg
+            className="w-5 h-5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+          >
+            <path
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M9 6l6 6-6 6"
+            />
+          </svg>
+        </button>
 
-      <div className="max-w-4xl mx-auto text-center">
-        {/* Quote */}
-        <blockquote className="text-center mx-auto max-w-3xl">
-          <p className="text-lg md:text-2xl lg:text-3xl leading-relaxed md:leading-snug font-serif italic text-gray-800">
-            “{current.description}”
-          </p>
-        </blockquote>
+        {/* Carousel track */}
+        <div className="overflow-hidden mt-2">
+          <div
+            className="flex transition-transform duration-500 ease-in-out"
+            style={{ transform: `translateX(-${index * 100}%)` }}
+            aria-live="polite"
+          >
+            {reviews.map((r) => (
+              <article key={r.id} className="min-w-full px-6 md:px-12 py-12">
+                <blockquote className="text-center mx-auto max-w-3xl">
+                  <p className="text-lg md:text-2xl lg:text-3xl leading-relaxed md:leading-snug font-serif italic text-gray-800">
+                    “{r.description}”
+                  </p>
+                </blockquote>
 
-        {/* Name + role */}
-        <div className="mt-6">
-          <div className="text-base md:text-lg font-semibold text-gray-800">{current.name}</div>
-          <div className="text-sm text-gray-500">Client</div>
+                <div className="mt-6">
+                  <div className="text-base md:text-lg font-semibold text-gray-800">
+                    {r.name}
+                  </div>
+                  <div className="text-sm text-gray-500">Client</div>
+                </div>
+              </article>
+            ))}
+          </div>
         </div>
 
-        {/* avatars */}
+        {/* avatars / indicators */}
         <div className="mt-8 flex items-center justify-center gap-3">
           {reviews.map((r, i) => {
             const src = r.photo ? `${base}${r.photo}` : null;
@@ -111,13 +171,26 @@ export default function ReviewsList() {
                 className={`w-14 h-14 rounded-full overflow-hidden ring-2 transition-all transform ${
                   isActive ? "ring-amber-400 scale-105" : "ring-transparent"
                 }`}
-                style={{ boxShadow: isActive ? "0 6px 18px rgba(0,0,0,0.12)" : undefined }}
+                style={{
+                  boxShadow: isActive
+                    ? "0 6px 18px rgba(0,0,0,0.12)"
+                    : undefined,
+                }}
               >
                 {src ? (
-                  <img src={src} alt={r.name} className="w-full h-full object-cover" />
+                  <img
+                    src={src}
+                    alt={r.name}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
                 ) : (
                   <div className="w-full h-full bg-gray-200 flex items-center justify-center text-sm text-gray-600">
-                    {r.name?.split(" ").map((s) => s[0]).slice(0,2).join("")}
+                    {r.name
+                      ?.split(" ")
+                      .map((s) => s[0])
+                      .slice(0, 2)
+                      .join("")}
                   </div>
                 )}
               </button>
@@ -125,15 +198,6 @@ export default function ReviewsList() {
           })}
         </div>
       </div>
-
-      <style jsx>{`
-        /* optional: make container focus outline nicer */
-        div[tabindex="0"]:focus {
-          outline: none;
-          box-shadow: 0 0 0 4px rgba(59,130,246,0.12);
-          border-radius: 0.25rem;
-        }
-      `}</style>
     </div>
   );
 }

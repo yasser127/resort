@@ -6,8 +6,6 @@ type GeneralsRaw = Record<string, any>;
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3000";
 
-
-
 function Label({
   children,
   small,
@@ -67,8 +65,6 @@ function TextArea({
     />
   );
 }
-
-/* ----------------- MultiList (for multiple slogans / singularities) ----------------- */
 
 function MultiList({
   items,
@@ -132,7 +128,75 @@ function MultiList({
   );
 }
 
-/* ----------------- Card ----------------- */
+// Media types & UI
+type MediaItem = {
+  id?: number;
+  social_media_name: string;
+  social_media_link: string;
+};
+
+function MediaList({
+  items,
+  onChange,
+}: {
+  items: MediaItem[];
+  onChange: (items: MediaItem[]) => void;
+}) {
+  function updateAt(idx: number, key: keyof MediaItem, v: string) {
+    const next = [...items];
+    next[idx] = { ...next[idx], [key]: v } as MediaItem;
+    onChange(next);
+  }
+  function addItem() {
+    onChange([...items, { social_media_name: "", social_media_link: "" }]);
+  }
+  function removeAt(idx: number) {
+    const next = items.filter((_, i) => i !== idx);
+    onChange(next);
+  }
+  return (
+    <div className="space-y-2">
+      {items.length === 0 ? (
+        <div className="text-xs text-gray-400">No social links yet — add one.</div>
+      ) : null}
+      <div className="space-y-2">
+        {items.map((it, idx) => (
+          <div key={idx} className="flex gap-2 items-start">
+            <input
+              value={it.social_media_name}
+              onChange={(e) => updateAt(idx, "social_media_name", e.target.value)}
+              placeholder="Platform name (e.g. Instagram)"
+              className="w-48 bg-white border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-4 focus:ring-indigo-100 transition"
+            />
+            <input
+              value={it.social_media_link}
+              onChange={(e) => updateAt(idx, "social_media_link", e.target.value)}
+              placeholder="https://..."
+              className="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-4 focus:ring-indigo-100 transition"
+            />
+            <button
+              type="button"
+              onClick={() => removeAt(idx)}
+              className="text-sm text-rose-600 bg-rose-50 px-3 py-1 rounded-md hover:bg-rose-100"
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div>
+        <button
+          type="button"
+          onClick={addItem}
+          className="text-sm inline-flex items-center gap-2 px-3 py-1 rounded-md bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
+        >
+          + Add social link
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function Card({
   title,
@@ -164,8 +228,6 @@ function Card({
   );
 }
 
-/* ----------------- Main component ----------------- */
-
 export default function GeneralForm() {
   const [form, setForm] = useState<GeneralsRaw>({});
   const [loading, setLoading] = useState<boolean>(true);
@@ -173,6 +235,7 @@ export default function GeneralForm() {
     "idle"
   );
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [media, setMedia] = useState<MediaItem[]>([]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -225,12 +288,38 @@ export default function GeneralForm() {
           "about.stat1",
           "about.stat2",
           "about.stat3",
+          // gym/pool keys:
+          "gymPool.title",
+          "gymPool.pool_description",
+          "gymPool.gym_description",
+          // image keys (these will be File objects when selected)
+          "gymPool.pool_image",
+          "gymPool.gym_image",
         ];
         ensureKeys.forEach((k) => {
           if (!(k in normalized)) normalized[k] = "";
         });
 
         setForm(normalized);
+
+        // fetch media table
+        try {
+          const r2 = await fetch(`${API_BASE}/api/general/media`, { signal });
+          if (r2.ok) {
+            const rows = await r2.json();
+            setMedia(
+              (rows || []).map((r: any) => ({
+                id: r.id,
+                social_media_name: r.name || r.social_media_name || "",
+                social_media_link: r.link || r.social_media_link || "",
+              }))
+            );
+          }
+        } catch (e) {
+          // non-fatal
+          console.warn("Could not load media:", e);
+        }
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (err: any) {
         if (err.name === "AbortError") return;
@@ -251,24 +340,77 @@ export default function GeneralForm() {
   async function handleSave(e?: React.FormEvent) {
     e?.preventDefault();
     setStatus("saving");
+
     try {
-      // Build payload: keep arrays as arrays, strings stay strings
-      const payload: GeneralsRaw = {};
-      for (const [k, v] of Object.entries(form)) {
-        // skip undefined
-        if (v === undefined) continue;
-        payload[k] = v;
+      // detect files in the form state
+      const hasFile = Object.values(form).some(
+        // File in browsers implements Blob; also accept instance of File
+        (v) => v instanceof File || (v && typeof v === "object" && v instanceof Blob)
+      );
+
+      if (hasFile) {
+        // Build multipart/form-data
+        const fd = new FormData();
+        for (const [k, v] of Object.entries(form)) {
+          if (v === undefined) continue;
+          // Files (File/Blob)
+          if (v instanceof File || (v && typeof v === "object" && v instanceof Blob)) {
+            // append file directly (ensure the key name matches the DB 'name' rows)
+            fd.append(k, v as Blob);
+            continue;
+          }
+          // Arrays / objects -> JSON.stringify so backend stores them as JSON strings
+          if (typeof v === "object") {
+            fd.append(k, JSON.stringify(v));
+            continue;
+          }
+          // primitives -> string
+          fd.append(k, String(v));
+        }
+
+        const res = await fetch(`${API_BASE}/api/general/upload`, {
+          method: "POST",
+          body: fd,
+        });
+        if (!res.ok) throw new Error("Save failed (multipart)");
+      } else {
+        // No files → use existing JSON API
+        const payload: GeneralsRaw = {};
+        for (const [k, v] of Object.entries(form)) {
+          if (v === undefined) continue;
+          payload[k] = v;
+        }
+
+        const res = await fetch(`${API_BASE}/api/general`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error("Save failed (json)");
       }
 
-      const res = await fetch(`${API_BASE}/api/general`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error("Save failed");
+      // Save media table (replace-all approach)
+      try {
+        const mediaPayload = media.map(({ id, ...rest }) => ({
+          social_media_name: rest.social_media_name,
+          social_media_link: rest.social_media_link,
+        }));
+
+        const r = await fetch(`${API_BASE}/api/general/media`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(mediaPayload),
+        });
+        if (!r.ok) throw new Error("Save media failed");
+      } catch (err) {
+        console.error("media save failed:", err);
+        throw err;
+      }
+
       setStatus("saved");
       setSavedAt(Date.now());
       setTimeout(() => setStatus("idle"), 1400);
+      // optionally re-fetch to get latest DB values (including any saved image metadata)
     } catch (err) {
       console.error(err);
       setStatus("error");
@@ -320,9 +462,7 @@ export default function GeneralForm() {
 
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">
-            Site Generals · Admin
-          </h1>
+          <h1 className="text-2xl font-bold text-slate-900">Site Generals · Admin</h1>
           <p className="text-sm text-gray-500 mt-1">
             Edit site-wide content — multiple slogans & singularities supported.
           </p>
@@ -330,7 +470,6 @@ export default function GeneralForm() {
 
         <div className="flex items-center gap-3">
           <div className="text-right text-xs text-gray-400">
-            
             {savedAt ? (
               <div className="text-[11px] text-gray-400 mt-1">
                 Last: {new Date(savedAt).toLocaleString()}
@@ -487,6 +626,77 @@ export default function GeneralForm() {
               onChange={(v) => updateField("services.title", v)}
               placeholder="Our premium services"
             />
+          </Card>
+           {/* New Gym & Pool card (images + descriptions + title) */}
+          <Card title="Gym & Pool" subtitle="Title, descriptions and images">
+            <div className="grid grid-cols-1 gap-4">
+              <div>
+                <Label>Title </Label>
+                <Input
+                  value={String(get("gymPool.title") || "")}
+                  onChange={(v) => updateField("gymPool.title", v)}
+                  placeholder="Gym & Pool"
+                />
+              </div>
+
+              <div>
+                <Label>Pool description</Label>
+                <TextArea
+                  value={String(get("gymPool.pool_description") || "")}
+                  onChange={(v) => updateField("gymPool.pool_description", v)}
+                  placeholder="Description for pool"
+                />
+              </div>
+
+              <div>
+                <Label>Gym description</Label>
+                <TextArea
+                  value={String(get("gymPool.gym_description") || "")}
+                  onChange={(v) => updateField("gymPool.gym_description", v)}
+                  placeholder="Description for gym"
+                />
+              </div>
+
+              <div>
+                <Label>Pool image</Label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) =>
+                    updateField(
+                      "gymPool.pool_image",
+                      e.target.files && e.target.files.length ? e.target.files[0] : ""
+                    )
+                  }
+                  className="block mt-2"
+                />
+                {get("gymPool.pool_image") && get("gymPool.pool_image").name ? (
+                  <div className="text-xs text-gray-500 mt-1">
+                    Selected: {get("gymPool.pool_image").name}
+                  </div>
+                ) : null}
+              </div>
+
+              <div>
+                <Label>Gym image</Label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) =>
+                    updateField(
+                      "gymPool.gym_image",
+                      e.target.files && e.target.files.length ? e.target.files[0] : ""
+                    )
+                  }
+                  className="block mt-2"
+                />
+                {get("gymPool.gym_image") && get("gymPool.gym_image").name ? (
+                  <div className="text-xs text-gray-500 mt-1">
+                    Selected: {get("gymPool.gym_image").name}
+                  </div>
+                ) : null}
+              </div>
+            </div>
           </Card>
         </div>
 
@@ -656,6 +866,11 @@ export default function GeneralForm() {
               </div>
             </div>
           </Card>
+
+          <Card title="Social media" subtitle="Platform names & links">
+            <MediaList items={media} onChange={setMedia} />
+          </Card>
+
         </div>
       </div>
 

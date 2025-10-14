@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from "react";
+import  { useEffect, useState } from "react";
 import axios from "axios";
+import type { JSX } from "react/jsx-runtime";
 
 type Room = {
   id: number;
   title: string;
   description?: string | null;
-  // server may return either the label (type/status) or the id fields
   status?: string | null;
   area?: string | null;
   type?: string | null;
@@ -22,7 +22,7 @@ export default function RoomsList(): JSX.Element {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // lookup maps for id -> label
+  
   const [typesMap, setTypesMap] = useState<Record<number, string>>({});
   const [statusesMap, setStatusesMap] = useState<Record<number, string>>({});
 
@@ -75,6 +75,7 @@ export default function RoomsList(): JSX.Element {
             if (mounted) setStatusesMap(m);
           }
         }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (err: any) {
         console.error("load error", err);
         if (mounted) setError(err.message || "Failed to load rooms");

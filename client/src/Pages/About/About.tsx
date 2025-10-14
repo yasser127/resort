@@ -249,7 +249,10 @@ We host discerning travelers from across the globe and curate experiences that c
             </p>
             <div className="mt-8 flex gap-4">
               <a
-                href="#book"
+                href={`https://wa.me/96181635574?text=${encodeURIComponent(
+                  "Hello 👋, I want to book a room — please help me with availability and prices."
+                )}`}
+                target="_blank"
                 className="inline-block bg-transparent border border-white/60 text-white px-4 py-2 rounded-md text-sm"
               >
                 Book a Room
@@ -371,7 +374,10 @@ We host discerning travelers from across the globe and curate experiences that c
                   <div className="mt-4 flex justify-end md:justify-start">
                     <a
                       className="inline-flex items-center gap-3 bg-black text-white px-5 py-3 rounded-full shadow-md transform hover:-translate-y-0.5 transition"
-                      href="#book"
+                      href={`https://wa.me/96181635574?text=${encodeURIComponent(
+                        "Hello 👋, I want to book a room — please help me with availability and prices."
+                      )}`}
+                      target="_blank"
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -421,7 +427,10 @@ We host discerning travelers from across the globe and curate experiences that c
 
                 <div className="mt-6 flex items-center justify-center gap-4">
                   <motion.a
-                    href="#contact"
+                    href={`https://wa.me/96181635574?text=${encodeURIComponent(
+                      "Hello 👋, I want to book a room — please help me with availability and prices."
+                    )}`}
+                    target="_blank"
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.98 }}
                     className="inline-flex items-center gap-3 bg-white text-black px-6 py-3 rounded-full font-medium shadow-lg"
